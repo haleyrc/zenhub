@@ -6,15 +6,11 @@ import (
 )
 
 type Epic struct {
-	TotalEpicEstimates struct {
-		Value int64 `json:"value"`
-	} `json:"total_epic_estimates"`
-	Estimate struct {
-		Value int64 `json:"value"`
-	} `json:"estimate"`
-	Pipeline  *Pipeline  `json:"pipeline"`
-	Pipelines []Pipeline `json:"pipelines"`
-	Issues    []Issue    `json:"issues"`
+	TotalEpicEstimates Int64Value `json:"total_epic_estimates"`
+	Estimate           Int64Value `json:"estimate"`
+	Pipeline           *Pipeline  `json:"pipeline"`
+	Pipelines          []Pipeline `json:"pipelines"`
+	Issues             []Issue    `json:"issues"`
 }
 
 func (c *Client) GetEpic(ctx context.Context, repoID, epicID string) (*Epic, error) {
