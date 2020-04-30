@@ -9,12 +9,13 @@ import (
 	"time"
 )
 
-const BaseURL = "https://api.zenhub.com/"
+const DefaultURL = "https://api.zenhub.com/"
 
 func New(token string) *Client {
 	return &Client{
 		HTTPClient: &http.Client{Timeout: 5 * time.Second},
 		Token:      token,
+		URL:        DefaultURL,
 	}
 }
 
@@ -22,6 +23,7 @@ type Client struct {
 	Debug      bool
 	HTTPClient *http.Client
 	Token      string
+	URL        string
 }
 
 func (c *Client) get(path string, data interface{}) error {
@@ -48,7 +50,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) (*http.Reque
 		return nil, err
 	}
 
-	url := BaseURL + path
+	url := c.URL + path
 	req, err := http.NewRequest(method, url, buf)
 	if err != nil {
 		return nil, err
