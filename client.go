@@ -6,14 +6,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"os"
+	"strconv"
 	"time"
 )
 
-const DefaultURL = "https://api.zenhub.com/"
+const DefaultURL = "https://api.zenhub.com"
 
 func New(token string) *Client {
 	return &Client{
-		HTTPClient: &http.Client{Timeout: 5 * time.Second},
+		HTTPClient: &http.Client{Timeout: 30 * time.Second},
 		Token:      token,
 		URL:        DefaultURL,
 	}
@@ -27,14 +29,19 @@ type Client struct {
 }
 
 func (c *Client) get(path string, data interface{}) error {
-	req, err := c.makeRequest(http.MethodGet, path, data)
+	req, err := c.makeRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return err
 	}
 
+start:
 	resp, err := c.do(req)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode == 403 {
+		waitUntil(resp.Header.Get("Date"), resp.Header.Get("X-RateLimit-Reset"))
+		goto start
 	}
 
 	if err := c.decode(resp, data); err != nil {
@@ -44,14 +51,25 @@ func (c *Client) get(path string, data interface{}) error {
 	return nil
 }
 
+func waitUntil(date, resetTime string) {
+	curr, _ := time.Parse("Mon, 2 Jan 2006 15:04:05 MST", date)
+	curr = curr.Local()
+	reset, _ := strconv.ParseInt(resetTime, 10, 64)
+	d := time.Unix(reset, 0).Local().Sub(curr)
+	fmt.Println("Waiting", d)
+	<-time.After(d)
+}
+
 func (c *Client) makeRequest(method, path string, body interface{}) (*http.Request, error) {
-	buf := &bytes.Buffer{}
-	if err := json.NewEncoder(buf).Encode(body); err != nil {
-		return nil, err
+	var buf bytes.Buffer
+	if body != nil {
+		if err := json.NewEncoder(&buf).Encode(body); err != nil {
+			return nil, err
+		}
 	}
 
 	url := c.URL + path
-	req, err := http.NewRequest(method, url, buf)
+	req, err := http.NewRequest(method, url, &buf)
 	if err != nil {
 		return nil, err
 	}
@@ -91,10 +109,10 @@ func (c *Client) decode(resp *http.Response, data interface{}) error {
 
 func dumpResponse(resp *http.Response) {
 	b, _ := httputil.DumpResponse(resp, true)
-	fmt.Println(string(b))
+	fmt.Fprintln(os.Stderr, string(b))
 }
 
 func dumpRequest(req *http.Request) {
 	b, _ := httputil.DumpRequest(req, true)
-	fmt.Println(string(b))
+	fmt.Fprintln(os.Stderr, string(b))
 }
